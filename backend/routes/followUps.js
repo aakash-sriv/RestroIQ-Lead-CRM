@@ -35,26 +35,37 @@ router.get('/lead/:leadId', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
     try {
         const { leadId, followUpDate, status, notes, nextFollowUpDate, leadStage } = req.body;
+
+        // Validate required fields
+        if (!leadId) {
+            return res.status(400).json({ error: 'leadId is required' });
+        }
+        if (!status) {
+            return res.status(400).json({ error: 'status is required' });
+        }
+
+        // Check if lead exists before creating follow-up
+        const { data: existingLead, error: leadCheckError } = await supabase
+            .from('leads')
+            .select('lead_id')
+            .eq('lead_id', leadId)
+            .single();
+
+        if (leadCheckError || !existingLead) {
+            return res.status(404).json({ error: 'Lead not found' });
+        }
+
         const now = new Date().toISOString();
 
         const newFollowUp = {
             lead_id: leadId,
             follow_up_date: followUpDate || now,
             status: status,
-            notes: notes,
+            notes: notes || null,
             next_follow_up_date: nextFollowUpDate || null
         };
 
-        // Insert follow-up
-        const { data: followUpResult, error: followUpError } = await supabase
-            .from('follow_ups')
-            .insert([newFollowUp])
-            .select()
-            .single();
-
-        if (followUpError) throw followUpError;
-
-        // Update the lead
+        // Build lead update object
         const leadUpdate = {
             last_follow_up_date: newFollowUp.follow_up_date,
             current_status: status
@@ -68,12 +79,25 @@ router.post('/', async (req, res, next) => {
             leadUpdate.lead_stage = leadStage;
         }
 
+        // Insert follow-up
+        const { data: followUpResult, error: followUpError } = await supabase
+            .from('follow_ups')
+            .insert([newFollowUp])
+            .select()
+            .single();
+
+        if (followUpError) throw followUpError;
+
+        // Update the lead
         const { error: leadError } = await supabase
             .from('leads')
             .update(leadUpdate)
             .eq('lead_id', leadId);
 
-        if (leadError) throw leadError;
+        if (leadError) {
+            // Log error but still return the follow-up since it was created
+            console.error('Error updating lead after follow-up:', leadError);
+        }
 
         res.status(201).json(toCamelCase(followUpResult));
     } catch (error) {

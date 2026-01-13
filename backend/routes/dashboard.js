@@ -3,6 +3,14 @@ import { supabase } from '../lib/supabaseClient.js';
 
 const router = express.Router();
 
+// Helper: Get today's date in local timezone (YYYY-MM-DD format)
+const getLocalDateString = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 // GET dashboard statistics
 router.get('/stats', async (req, res, next) => {
     try {
@@ -12,12 +20,14 @@ router.get('/stats', async (req, res, next) => {
 
         if (error) throw error;
 
-        const today = new Date().toISOString().split('T')[0];
+        // Use local timezone for date comparison
+        const today = getLocalDateString(new Date());
 
         const totalLeads = leads.length;
         const callsDueToday = leads.filter(l => {
             if (!l.next_follow_up_date) return false;
-            const followUpDate = new Date(l.next_follow_up_date).toISOString().split('T')[0];
+            // Parse the follow-up date and get local date string
+            const followUpDate = getLocalDateString(new Date(l.next_follow_up_date));
             return followUpDate === today &&
                 !['Converted', 'Not Interested'].includes(l.current_status);
         }).length;

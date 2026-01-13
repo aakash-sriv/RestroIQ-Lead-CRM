@@ -102,6 +102,7 @@ export default function LeadDetail() {
             await deleteLead(lead.leadId);
             navigate('/leads');
         } catch (error) {
+            console.error('Failed to delete lead:', error);
             alert('Failed to delete lead. Please try again.');
         }
     };

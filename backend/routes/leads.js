@@ -17,6 +17,13 @@ const toCamelCase = (lead) => ({
     updatedAt: lead.updated_at
 });
 
+// Helper: Trim string or return null
+const trimOrNull = (value) => {
+    if (value === undefined || value === null) return null;
+    const trimmed = String(value).trim();
+    return trimmed.length > 0 ? trimmed : null;
+};
+
 // GET all leads
 router.get('/', async (req, res, next) => {
     try {
@@ -56,12 +63,33 @@ router.post('/', async (req, res, next) => {
     try {
         const { restaurantName, phone, city, currentStatus, leadStage, nextFollowUpDate } = req.body;
 
+        // Validate required fields
+        const errors = [];
+
+        const trimmedRestaurantName = trimOrNull(restaurantName);
+        const trimmedPhone = trimOrNull(phone);
+        const trimmedCity = trimOrNull(city);
+
+        if (!trimmedRestaurantName) {
+            errors.push('restaurantName is required');
+        }
+        if (!trimmedPhone) {
+            errors.push('phone is required');
+        }
+        if (!trimmedCity) {
+            errors.push('city is required');
+        }
+
+        if (errors.length > 0) {
+            return res.status(400).json({ error: errors.join(', ') });
+        }
+
         const newLead = {
-            restaurant_name: restaurantName,
-            phone: phone,
-            city: city,
-            current_status: currentStatus || 'New',
-            lead_stage: leadStage || 'Cold',
+            restaurant_name: trimmedRestaurantName,
+            phone: trimmedPhone,
+            city: trimmedCity,
+            current_status: trimOrNull(currentStatus) || 'New',
+            lead_stage: trimOrNull(leadStage) || 'Cold',
             next_follow_up_date: nextFollowUpDate || null
         };
 
@@ -84,15 +112,38 @@ router.put('/:id', async (req, res, next) => {
     try {
         const { restaurantName, phone, city, currentStatus, leadStage, nextFollowUpDate, lastFollowUpDate } = req.body;
 
-        const updatedLead = {
-            restaurant_name: restaurantName,
-            phone: phone,
-            city: city,
-            current_status: currentStatus,
-            lead_stage: leadStage,
-            next_follow_up_date: nextFollowUpDate || null,
-            last_follow_up_date: lastFollowUpDate || null
-        };
+        // Build update object with only provided fields
+        const updatedLead = {};
+
+        if (restaurantName !== undefined) {
+            const trimmed = trimOrNull(restaurantName);
+            if (trimmed) updatedLead.restaurant_name = trimmed;
+        }
+        if (phone !== undefined) {
+            const trimmed = trimOrNull(phone);
+            if (trimmed) updatedLead.phone = trimmed;
+        }
+        if (city !== undefined) {
+            const trimmed = trimOrNull(city);
+            if (trimmed) updatedLead.city = trimmed;
+        }
+        if (currentStatus !== undefined) {
+            updatedLead.current_status = currentStatus;
+        }
+        if (leadStage !== undefined) {
+            updatedLead.lead_stage = leadStage;
+        }
+        if (nextFollowUpDate !== undefined) {
+            updatedLead.next_follow_up_date = nextFollowUpDate || null;
+        }
+        if (lastFollowUpDate !== undefined) {
+            updatedLead.last_follow_up_date = lastFollowUpDate || null;
+        }
+
+        // Check if there's anything to update
+        if (Object.keys(updatedLead).length === 0) {
+            return res.status(400).json({ error: 'No valid fields to update' });
+        }
 
         const { data, error } = await supabase
             .from('leads')
@@ -102,6 +153,7 @@ router.put('/:id', async (req, res, next) => {
             .single();
 
         if (error) throw error;
+        if (!data) return res.status(404).json({ error: 'Lead not found' });
 
         res.json(toCamelCase(data));
     } catch (error) {
@@ -112,6 +164,18 @@ router.put('/:id', async (req, res, next) => {
 // DELETE lead
 router.delete('/:id', async (req, res, next) => {
     try {
+        // First check if lead exists
+        const { data: existingLead, error: checkError } = await supabase
+            .from('leads')
+            .select('lead_id')
+            .eq('lead_id', req.params.id)
+            .single();
+
+        if (checkError || !existingLead) {
+            return res.status(404).json({ error: 'Lead not found' });
+        }
+
+        // Delete the lead
         const { error } = await supabase
             .from('leads')
             .delete()

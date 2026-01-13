@@ -13,6 +13,7 @@ export default function Leads() {
         search: ''
     });
     const [hoveredRow, setHoveredRow] = useState(null);
+    const [focusedRow, setFocusedRow] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -164,6 +165,8 @@ export default function Leads() {
                                         e.currentTarget.style.backgroundColor = 'transparent';
                                         setHoveredRow(null);
                                     }}
+                                    onFocus={() => setFocusedRow(lead.leadId)}
+                                    onBlur={() => setFocusedRow(null)}
                                 >
                                     <td style={{ fontWeight: 500 }}>{lead.restaurantName}</td>
                                     <td>{lead.phone}</td>
@@ -185,8 +188,9 @@ export default function Leads() {
                                         <button
                                             onClick={(e) => handleDelete(e, lead.leadId, lead.restaurantName)}
                                             className="btn-icon-delete"
+                                            aria-label={`Delete ${lead.restaurantName}`}
                                             style={{
-                                                opacity: hoveredRow === lead.leadId ? 1 : 0,
+                                                opacity: (hoveredRow === lead.leadId || focusedRow === lead.leadId) ? 1 : 0,
                                                 transition: 'opacity 0.2s, background-color 0.2s',
                                                 padding: '6px',
                                                 borderRadius: '6px',
@@ -197,6 +201,13 @@ export default function Leads() {
                                             }}
                                             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'}
                                             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                            onFocus={(e) => {
+                                                e.currentTarget.style.backgroundColor = '#fee2e2';
+                                                e.currentTarget.style.opacity = '1';
+                                            }}
+                                            onBlur={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                            }}
                                             title="Delete lead"
                                         >
                                             <Trash2 size={18} />

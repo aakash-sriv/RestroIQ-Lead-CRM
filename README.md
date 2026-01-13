@@ -40,6 +40,8 @@ npm run dev
 ```bash
 cd frontend
 npm install
+cp .env.example .env
+# Adjust VITE_API_URL if your backend runs on a different port
 npm run dev
 ```
 
